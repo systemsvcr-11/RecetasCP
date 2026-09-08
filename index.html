@@ -1,0 +1,278 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Producción - Cocina</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        .recipe-scroll::-webkit-scrollbar { width: 6px; }
+        .recipe-scroll::-webkit-scrollbar-track { background: #1f2937; border-radius: 4px; }
+        .recipe-scroll::-webkit-scrollbar-thumb { background: #4b5563; border-radius: 4px; }
+        .recipe-scroll::-webkit-scrollbar-thumb:hover { background: #6b7280; }
+        @keyframes fadeIn { from { opacity: 0; transform: translateY(-10px); } to { opacity: 1; transform: translateY(0); } }
+        .fade-in { animation: fadeIn 0.3s ease-out forwards; }
+    </style>
+</head>
+<body class="bg-gray-900 text-gray-100 h-screen flex flex-col font-sans overflow-hidden">
+
+    <!-- PANTALLA DE LOGIN -->
+    <div id="loginScreen" class="absolute inset-0 bg-gray-950 z-50 flex items-center justify-center">
+        <div class="bg-gray-800 p-8 rounded-xl shadow-2xl border border-gray-700 w-96 max-w-full">
+            <h2 class="text-3xl font-black text-center text-emerald-500 mb-2">PRODUCCIÓN</h2>
+            <p class="text-center text-gray-400 mb-6 text-sm">Acceso al sistema de recetas</p>
+            
+            <div class="mb-4">
+                <label class="block text-xs font-semibold text-gray-400 uppercase mb-1">Usuario</label>
+                <input type="text" id="userLogin" class="w-full bg-gray-700 text-white border border-gray-600 rounded px-4 py-2 focus:ring-2 focus:ring-emerald-500 outline-none">
+            </div>
+            <div class="mb-6">
+                <label class="block text-xs font-semibold text-gray-400 uppercase mb-1">Contraseña</label>
+                <input type="password" id="passLogin" class="w-full bg-gray-700 text-white border border-gray-600 rounded px-4 py-2 focus:ring-2 focus:ring-emerald-500 outline-none" onkeypress="if(event.key === 'Enter') doLogin()">
+            </div>
+            
+            <button onclick="doLogin()" class="w-full bg-emerald-600 hover:bg-emerald-500 text-white font-bold py-2 px-4 rounded transition-colors">
+                Ingresar
+            </button>
+            <p id="loginError" class="text-red-400 text-sm text-center mt-3 hidden">Credenciales incorrectas.</p>
+        </div>
+    </div>
+
+    <!-- PANTALLA DE CARGA -->
+    <div id="loader" class="absolute inset-0 bg-gray-900 z-40 flex flex-col items-center justify-center hidden">
+        <svg class="animate-spin h-10 w-10 text-emerald-500 mb-4" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path></svg>
+        <p class="text-gray-400 font-semibold tracking-wider animate-pulse">Cargando base de datos...</p>
+    </div>
+
+    <!-- APP PRINCIPAL (Oculta hasta login) -->
+    <div id="mainApp" class="flex flex-col h-full hidden">
+        <!-- BARRA DE CONTROL -->
+        <header class="bg-gray-800 border-b border-gray-700 p-4 shadow-lg flex items-end gap-4 shrink-0 z-10">
+            <div class="relative flex-1 max-w-md">
+                <label class="block text-xs font-semibold text-gray-400 uppercase tracking-wide mb-1">Buscar Receta (Producción)</label>
+                <input type="text" id="searchInput" autocomplete="off" placeholder="Escribe para buscar..." 
+                    class="w-full bg-gray-700 text-white border border-gray-600 rounded-lg px-4 py-3 focus:outline-none focus:ring-2 focus:ring-emerald-500 transition-all">
+                <div id="suggestions" class="hidden absolute w-full max-h-60 overflow-y-auto bg-gray-700 border border-gray-600 rounded-lg mt-1 shadow-xl z-20"></div>
+            </div>
+
+            <div class="w-72">
+                <label id="mainIngLabel" class="block text-xs font-semibold text-emerald-400 uppercase tracking-wide mb-1 truncate" title="Insumo Principal">Cant. Principal</label>
+                <div class="relative">
+                    <input type="number" id="qtyInput" placeholder="0" disabled class="w-full bg-gray-700 text-white border border-gray-600 rounded-lg px-4 py-3 focus:outline-none focus:ring-2 focus:ring-emerald-500 disabled:opacity-50 text-xl font-bold transition-all">
+                    <span id="unitLabel" class="absolute right-3 top-3.5 text-gray-400 text-sm font-bold"></span>
+                </div>
+            </div>
+
+            <button id="btnProyectar" disabled class="bg-emerald-600 hover:bg-emerald-500 text-white font-bold py-3 px-8 rounded-lg shadow-lg disabled:opacity-50 transition-colors text-lg">Proyectar</button>
+            <div class="flex-1"></div>
+            <button onclick="document.getElementById('tv-grid').innerHTML=''" class="bg-red-900/50 hover:bg-red-800/80 text-red-200 font-bold py-2 px-4 rounded-lg border border-red-800 transition-colors text-sm">Limpiar Pantalla</button>
+        </header>
+
+        <!-- ÁREA DE PROYECCIÓN (TV) -->
+        <main class="flex-1 p-6 overflow-y-auto bg-gray-950 recipe-scroll">
+            <div id="tv-grid" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 items-start"></div>
+        </main>
+    </div>
+
+    <script>
+        // ==========================================
+        // 1. CONFIGURACIÓN
+        // ==========================================
+        const USUARIO_VALIDO = "admin";
+        const PASS_VALIDA = "cocina123";
+        
+        // PEGA AQUÍ TU URL DE GOOGLE APPS SCRIPT (Termina en /exec)
+        const API_URL = "https://script.google.com/macros/s/AKfycbz1Sdxry6ukYGZ5E7YENSpv7Ky8zUEyPQyu9K2egaRq83jpQx_F0-74tz84indmODOdOw/exec"; 
+        // ==========================================
+
+        let allRecipes = {};
+        let currentSelectedRecipe = null;
+
+        // Elementos UI
+        const loginScreen = document.getElementById('loginScreen');
+        const mainApp = document.getElementById('mainApp');
+        const loader = document.getElementById('loader');
+        const searchInput = document.getElementById('searchInput');
+        const suggestions = document.getElementById('suggestions');
+        const qtyInput = document.getElementById('qtyInput');
+        const unitLabel = document.getElementById('unitLabel');
+        const mainIngLabel = document.getElementById('mainIngLabel');
+        const btnProyectar = document.getElementById('btnProyectar');
+        const tvGrid = document.getElementById('tv-grid');
+
+        // 2. LÓGICA DE LOGIN
+        function doLogin() {
+            const u = document.getElementById('userLogin').value;
+            const p = document.getElementById('passLogin').value;
+            if(u === USUARIO_VALIDO && p === PASS_VALIDA) {
+                loginScreen.style.display = 'none';
+                mainApp.classList.remove('hidden');
+                loadDataFromAPI();
+            } else {
+                document.getElementById('loginError').classList.remove('hidden');
+            }
+        }
+
+        // 3. FETCH DATA DESDE GOOGLE SHEETS
+        async function loadDataFromAPI() {
+            loader.classList.remove('hidden');
+            try {
+                const response = await fetch(API_URL);
+                allRecipes = await response.json();
+                loader.classList.add('hidden');
+            } catch (error) {
+                console.error("Error cargando recetas:", error);
+                alert("Error al conectar con la base de datos de Google Sheets.");
+                loader.classList.add('hidden');
+            }
+        }
+
+        // 4. BUSCADOR
+        searchInput.addEventListener('input', (e) => {
+            const val = e.target.value.toLowerCase();
+            suggestions.innerHTML = '';
+            
+            if(val.length === 0) {
+                suggestions.classList.add('hidden');
+                return;
+            }
+
+            const matches = Object.keys(allRecipes).filter(key => key.toLowerCase().includes(val));
+            
+            if (matches.length > 0) {
+                matches.forEach(key => {
+                    const recipe = allRecipes[key];
+                    const div = document.createElement('div');
+                    div.className = 'px-4 py-3 hover:bg-gray-600 cursor-pointer text-white border-b border-gray-600 transition-colors';
+                    const mainIngName = recipe.mainIngredient ? recipe.mainIngredient.insumo : 'Sin principal';
+                    
+                    div.innerHTML = `${recipe.name} <br><span class="text-xs text-gray-400">Principal: ${mainIngName}</span>`;
+                    div.onclick = () => selectRecipe(recipe.name);
+                    suggestions.appendChild(div);
+                });
+                suggestions.classList.remove('hidden');
+            } else {
+                suggestions.classList.add('hidden');
+            }
+        });
+
+        function selectRecipe(recipeName) {
+            currentSelectedRecipe = allRecipes[recipeName];
+            searchInput.value = recipeName;
+            suggestions.classList.add('hidden');
+            
+            if (currentSelectedRecipe && currentSelectedRecipe.mainIngredient) {
+                const mainIng = currentSelectedRecipe.mainIngredient;
+                mainIngLabel.textContent = `Cant. ${mainIng.insumo} (${mainIng.unidad})`;
+                unitLabel.textContent = mainIng.unidad;
+                qtyInput.disabled = false;
+                qtyInput.value = '';
+                qtyInput.focus();
+                btnProyectar.disabled = false;
+            } else {
+                alert("Esta receta no tiene un insumo marcado como 'PRINCIPAL'.");
+            }
+        }
+
+        const formatQty = (num) => Number.isInteger(num) ? num : parseFloat(num.toFixed(2));
+
+        // 5. PROYECTAR Y AGRUPAR SEGMENTOS
+        btnProyectar.addEventListener('click', () => {
+            if(!currentSelectedRecipe || !qtyInput.value) return;
+
+            const inputQty = parseFloat(qtyInput.value);
+            const baseQty = currentSelectedRecipe.mainIngredient.cantidad;
+            const factor = inputQty / baseQty; 
+            
+            let tbodyHtml = '';
+            let currentSegment = null; // Para rastrear cambios de segmento (PA NOMBRE)
+
+            currentSelectedRecipe.items.forEach(item => {
+                
+                // --- LÓGICA DE AGRUPACIÓN POR SEGMENTO ---
+                // Si el PA NOMBRE cambia y no es el nombre base de la receta, creamos un bloque separador
+                if (item.paNombre !== currentSegment) {
+                    currentSegment = item.paNombre;
+                    
+                    // Solo creamos el separador visual si es un "SUB" o distinto al nombre de producción
+                    // Ignoramos el separador para cosas como "PA Llatan Empaquetado" si estamos haciendo la receta base
+                    if (currentSegment.toUpperCase() !== currentSelectedRecipe.name.toUpperCase() && 
+                        !currentSegment.toUpperCase().includes("PA " + currentSelectedRecipe.name.toUpperCase())) {
+                        
+                        tbodyHtml += `
+                            <tr class="bg-gray-800 border-y-2 border-gray-600 shadow-inner">
+                                <td colspan="3" class="p-3 text-center text-emerald-400 text-sm font-black tracking-widest uppercase">
+                                    -- ${currentSegment} --
+                                </td>
+                            </tr>
+                        `;
+                    }
+                }
+
+                // --- LÓGICA DE CÁLCULO Y OCULTAMIENTO ---
+                const isNoCambia = item.status.includes('NO_CAMBIA');
+                const isPrincipal = item.status === 'PRINCIPAL';
+                
+                // Se aplica el multiplicador normal, excepto si dice NO_CAMBIA (mantiene cantidad base)
+                const finalQty = isNoCambia ? item.cantidad : formatQty(item.cantidad * factor);
+
+                let rowClass = "border-b border-gray-700 hover:bg-gray-700/30";
+                let textClass = "p-3 pl-6"; // pl-6 le da un ligero margen interno (sangría) a los ingredientes
+                let qtyClass = "p-3 font-bold text-right text-white";
+
+                if (isPrincipal) {
+                    rowClass = "border-b border-emerald-900 bg-emerald-900/30";
+                    textClass = "p-3 pl-6 font-bold text-emerald-400";
+                    qtyClass = "p-3 font-bold text-emerald-400 text-right";
+                }
+
+                // NOTA: No se imprime ningún aviso de "NO_CAMBIA", se muestra como un insumo normal
+                tbodyHtml += `
+                    <tr class="${rowClass}">
+                        <td class="${textClass}">${item.insumo}</td>
+                        <td class="${qtyClass}">${finalQty}</td>
+                        <td class="p-3 text-gray-400">${item.unidad}</td>
+                    </tr>
+                `;
+            });
+
+            const card = document.createElement('div');
+            card.className = 'bg-gray-800 rounded-xl shadow-2xl border border-gray-700 overflow-hidden fade-in flex flex-col max-h-[80vh]';
+            
+            card.innerHTML = `
+                <div class="bg-gray-700 px-6 py-4 flex justify-between items-center sticky top-0 shadow-md z-10">
+                    <h2 class="text-2xl font-black tracking-tight text-white uppercase">${currentSelectedRecipe.name}</h2>
+                    <button onclick="this.closest('.bg-gray-800').remove()" class="text-gray-400 hover:text-red-400 transition-colors">
+                        <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path></svg>
+                    </button>
+                </div>
+                <div class="overflow-y-auto recipe-scroll">
+                    <table class="w-full text-left border-collapse">
+                        <thead class="sticky top-0 bg-gray-900 border-b border-gray-700 shadow">
+                            <tr class="text-gray-400 text-xs uppercase tracking-wider">
+                                <th class="p-3 pl-6 font-semibold w-1/2">Insumo</th>
+                                <th class="p-3 font-semibold text-right">Cant.</th>
+                                <th class="p-3 font-semibold">Und.</th>
+                            </tr>
+                        </thead>
+                        <tbody class="text-lg">
+                            ${tbodyHtml}
+                        </tbody>
+                    </table>
+                </div>
+            `;
+
+            tvGrid.prepend(card);
+            
+            // Reset
+            searchInput.value = '';
+            qtyInput.value = '';
+            qtyInput.disabled = true;
+            btnProyectar.disabled = true;
+            unitLabel.textContent = '';
+            mainIngLabel.textContent = 'Cant. Principal';
+            currentSelectedRecipe = null;
+        });
+    </script>
+</body>
+</html>
