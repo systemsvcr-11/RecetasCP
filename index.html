@@ -173,7 +173,7 @@
             }
         }
 
-        const formatQty = (num) => Number.isInteger(num) ? num : parseFloat(num.toFixed(2));
+        const formatQty = (num) => Number.isInteger(num) ? num : parseFloat(num.toFixed(4));
 
         // 5. PROYECTAR Y AGRUPAR SEGMENTOS
         btnProyectar.addEventListener('click', () => {
