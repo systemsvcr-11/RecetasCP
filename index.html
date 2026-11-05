@@ -124,12 +124,92 @@
                 gap: 0.8rem;
             }
         }
-        /* REDUCCIÓN GLOBAL PARA AMAZON FIRE TV */
+        
+        /* =========================================
+           AMAZON FIRE TV - AJUSTE COMPLETO
+        ========================================= */
+        
         @media screen and (min-width: 700px) and (orientation: landscape) {
+        
+            /* Nivel de reducción */
             html {
                 zoom: 65% !important;
             }
+        
+            /* Recuperar el espacio perdido por el zoom */
+            body.h-screen {
+                width: 153.85% !important;
+                height: 153.85vh !important;
+                min-height: 153.85vh !important;
+                box-sizing: border-box;
+            }
+        
+            /* Aplicación ocupa todo el espacio */
+            #mainApp {
+                width: 100%;
+                height: 100%;
+                min-height: 0;
+                flex: 1 1 auto;
+            }
+        
+            /* Margen de seguridad de pantalla */
+            #mainApp > header {
+                padding: 1rem 1.5rem;
+                gap: 0.8rem;
+            }
+        
+            #mainApp > main {
+                padding: 1.5rem 2rem;
+                min-height: 0;
+            }
+        
+            /* TRES RECETAS POR FILA */
+            #tv-grid {
+                display: grid !important;
+                grid-template-columns: repeat(3, minmax(0, 1fr)) !important;
+                gap: 1.2rem !important;
+                width: 100%;
+                box-sizing: border-box;
+            }
+        
+            /* Tarjetas más compactas */
+            #tv-grid > div {
+                min-width: 0;
+                max-width: 100%;
+                max-height: 76vh;
+            }
+        
+            /* Títulos */
+            #tv-grid h2 {
+                font-size: 1.25rem;
+                line-height: 1.3;
+            }
+        
+            /* Tablas */
+            #tv-grid table {
+                width: 100%;
+                table-layout: fixed;
+            }
+        
+            #tv-grid th,
+            #tv-grid td {
+                padding: 0.5rem;
+                overflow-wrap: break-word;
+            }
+        
+            #tv-grid tbody {
+                font-size: 0.95rem;
+            }
+        
+            /* Evitar desbordamientos */
+            #mainApp,
+            #mainApp > main,
+            #tv-grid {
+                box-sizing: border-box;
+                min-width: 0;
+            }
         }
+
         
     </style>
 
